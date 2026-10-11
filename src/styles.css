@@ -579,3 +579,47 @@ body.no-gl #scene { display: none; }
 .q-sail { width: 44px; height: 44px; }
 .q-sail::after { content: ''; position: absolute; inset: 10px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.85); animation: ping 2.6s var(--ease) infinite; }
 @keyframes ping { 0% { transform: scale(0.4); opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+
+/* ------------------------------------------------------------ phones */
+.q-samurai { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.topbar { padding-top: max(18px, env(safe-area-inset-top)); }
+.passport { bottom: max(clamp(14px, 2vw, 26px), env(safe-area-inset-bottom)); }
+button, a { -webkit-tap-highlight-color: transparent; }
+
+@media (max-width: 720px) {
+  .world-head { min-height: 100svh; }
+  .passage { height: 100svh; }
+  .world { min-height: 200vh; padding: 0 44px 0 16px; }
+  .worlds { right: 6px; gap: 8px; }
+  .worlds .k { width: 26px; height: 26px; font-size: 0.78rem; }
+  .world-kanji { display: none; }
+  .scroll-cue { top: calc(100svh - 80px); }
+  /* fade the scenery behind the bar so cards scrolling under it stay legible */
+  .topbar::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 -24px;
+    background: linear-gradient(var(--paper), rgba(246, 239, 228, 0));
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: -1;
+  }
+  :root[data-night='true'] .topbar::before { background: linear-gradient(#0b0d14, rgba(11, 13, 20, 0)); }
+  .topbar-actions { gap: 6px; }
+  .topbar .pill { padding: 8px 12px; font-size: 0.8rem; }
+  .icon-btn { width: 36px; height: 36px; }
+  .seal { width: 40px; height: 40px; }
+  /* compact passport: just the stamps */
+  .passport { padding: 7px 10px; gap: 6px; }
+  .passport-label { display: none; }
+  .stamps i { width: 15px; height: 15px; font-size: 0.6rem; }
+  .hero .tagline { margin: 18px 0 22px; }
+  .hero-actions { margin-top: 18px; }
+  .hero-actions .pill { padding: 11px 18px; font-size: 0.9rem; }
+  .card h3 { font-size: 1.3rem; }
+  .project:hover { transform: none; }
+  .interlude { bottom: 45svh; font-size: 1.25rem; }
+  .terminal { bottom: max(12px, env(safe-area-inset-bottom)); height: 55svh; font-size: 13px; }
+  .sheet-card { padding: 26px 22px; }
+  .resume { padding-top: max(20px, env(safe-area-inset-top)); }
+}

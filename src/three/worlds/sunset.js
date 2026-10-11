@@ -61,6 +61,7 @@ export function createSunset(renderer, { mobile }) {
     lookFrom: new THREE.Vector3(4, 7.5, -60), lookTo: new THREE.Vector3(6, 7.8, -60),
     focal: new THREE.Vector3(0, 30, -900),
     sunDir, exposure: 0.6, enterPush: 14, sway: 0.6,
+    portraitLook: new THREE.Vector3(5, 5, -40), portraitShift: new THREE.Vector3(3, 0.4, -10),
   });
   const { scene } = W;
   setupSky(scene, renderer, { sun: sunDir, turbidity: 10, rayleigh: 3.2, mie: 0.012, mieG: 0.96, sunColor: 0xff8a50, sunIntensity: 3.2, fog: 0xa85a52, fogDensity: 0.00055, shadowBox: 60, shadowAt: new THREE.Vector3(6, 4, -20), hemi: 0.28 });
@@ -89,10 +90,10 @@ export function createSunset(renderer, { mobile }) {
   const samuraiAt = new THREE.Vector3(7, 0, -22);
   samuraiAt.y = heightFn(samuraiAt.x, samuraiAt.z) - 0.05;
   scene.add(grassField({
-    count: mobile ? 26000 : 90000, area: [150, 130], center: [4, -20], heightFn,
+    count: mobile ? 34000 : 90000, area: mobile ? [56, 56] : [150, 130], center: mobile ? [5, -20] : [4, -20], heightFn,
     base: 0x1c2008, tip: 0xc89848, sunDir, sunColor: 0xff9050, bladeH: [0.7, 1.5],
     fogColor: 0xa85a52, fogDensity: 0.00055,
-    avoid: (x, z) => Math.hypot(x - samuraiAt.x, z - samuraiAt.z) < 1.2 || (z > 16 && Math.abs(x) < 8),
+    avoid: (x, z) => Math.hypot(x - samuraiAt.x, z - samuraiAt.z) < 1.2 || (z > 16 && Math.abs(x) < 8) || (mobile && z > -1.5 && Math.abs(x - 4) < 3),
   }));
 
   const samurai = buildSamurai();

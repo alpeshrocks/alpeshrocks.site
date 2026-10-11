@@ -133,7 +133,7 @@ sections.push(`${head(4, 'The Way Forward')}
         <a href="${profile.linkedin}" target="_blank" rel="noopener">LinkedIn</a>
         <a href="#resume" data-action="resume">Resume</a>
       </div>
-      <p class="footer-note">Every world is real-time 3D built in code, with no photographs or models. Five stamps are hidden along the way, and there is a terminal for anyone who presses the backtick key.</p>
+      <p class="footer-note">Every world is real-time 3D built in code, with no photographs or models. Five stamps are hidden along the way, and there is a terminal for anyone who presses the backtick key, or taps the red seal five times.</p>
     </article>
   </div>`);
 
@@ -230,14 +230,21 @@ const builders = [
   (opts) => createSunset(engine.renderer, opts),
   (opts) => createMoon(engine.renderer, opts),
 ];
+const buildOpts = () => ({ mobile: engine.mobile, onFed: () => award('koi') });
+function buildFirst() {
+  if (!engine) return;
+  try { engine.add(0, builders[0](buildOpts())); } catch (err) { console.error('world', 0, err); }
+}
+// Remaining worlds build one per idle slot so the hero stays responsive.
 async function buildWorlds() {
   if (!engine) return;
-  const opts = { mobile: engine.mobile, onFed: () => award('koi') };
-  for (let i = 0; i < builders.length; i++) {
+  const opts = buildOpts();
+  const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(r, { timeout: 400 }) : setTimeout(r, 30)));
+  for (let i = 1; i < builders.length; i++) {
+    await idle();
     const t0 = performance.now();
     try { engine.add(i, builders[i](opts)); } catch (err) { console.error('world', i, err); }
     if (import.meta.env.DEV) console.info(`world ${i} built in ${Math.round(performance.now() - t0)} ms`);
-    await new Promise((r) => setTimeout(r, 0));
   }
 }
 
@@ -348,7 +355,7 @@ function placeTargets() {
 }
 
 // clicks on the scenery itself
-window.addEventListener('pointerdown', (e) => {
+window.addEventListener('click', (e) => {
   if (e.target.closest('.card, button, a, input, textarea, .terminal, .resume, .sheet, .topbar, .worlds, .passport')) return;
   if (!engine || state.secret > 0.5) return;
   const hit = engine.pick(e.clientX, e.clientY);
@@ -468,6 +475,7 @@ function showCategory(i) {
   if (!reduced) gsap.from(grid.children, { y: 24, opacity: 0, duration: 0.8, ease: 'expo.out', stagger: 0.05 });
 }
 
+let sealTaps = [];
 document.addEventListener('click', (e) => {
   const tab = e.target.closest('[data-cat]');
   if (tab) { showCategory(+tab.dataset.cat); return; }
@@ -480,7 +488,10 @@ document.addEventListener('click', (e) => {
   else if (a === 'close-resume') closeResume();
   else if (a === 'print') window.print();
   else if (a === 'begin') goToWorld(1);
-  else if (a === 'top') goToWorld(0);
+  else if (a === 'top') {
+    sealTaps = sealTaps.filter((t) => performance.now() - t < 2500).concat(performance.now());
+    if (sealTaps.length >= 5) { sealTaps = []; terminal.open(); } else goToWorld(0);
+  }
   else if (a === 'sound') { const on = audio.toggle(); el.setAttribute('aria-pressed', String(on)); toast(on ? 'Wind and strings. Turn it up a little.' : 'Silence.'); }
   else if (a === 'night') setNight(state.nightTarget < 0.5);
   else if (a === 'passport') $('#passport-sheet').hidden = false;
@@ -589,7 +600,7 @@ function loop(now) {
   state.mouse.x += (state.mouseTarget.x - state.mouse.x) * (1 - Math.exp(-dt * 2));
   state.mouse.y += (state.mouseTarget.y - state.mouse.y) * (1 - Math.exp(-dt * 2));
 
-  if (engine) engine.render(state, dt);
+  if (engine && resumeEl.hidden) engine.render(state, dt);
   fx.frame(dt);
   placeTargets();
 
@@ -615,19 +626,27 @@ function loop(now) {
 
 // ================================================================ boot
 
-window.addEventListener('resize', () => { measure(); ScrollTrigger.refresh(); });
+ScrollTrigger.config({ ignoreMobileResize: true });
+let lastW = innerWidth;
+window.addEventListener('resize', () => {
+  if (Math.abs(innerWidth - lastW) < 2 && engine && engine.mobile) return;
+  lastW = innerWidth;
+  measure();
+  ScrollTrigger.refresh();
+});
 window.addEventListener('load', measure);
 
 async function boot() {
   const minWait = new Promise((r) => setTimeout(r, reduced ? 200 : 1900));
   try { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 2500))]); } catch { /* fonts optional */ }
   measure();
-  await buildWorlds();
+  buildFirst();
   requestAnimationFrame(loop);
   await minWait;
   $('#loader').classList.add('done');
   reveals();
   if (location.hash === '#resume') openResume();
+  buildWorlds();
 }
 boot();
 

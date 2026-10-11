@@ -5,6 +5,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 const CompositeShader = {
+  defines: { RAY_STEPS: 36 },
   uniforms: {
     tDiffuse: { value: null },
     tA: { value: null },
@@ -41,11 +42,11 @@ const CompositeShader = {
 
     vec3 rays(sampler2D t, vec2 uv, vec3 sun) {
       if (sun.z <= 0.001) return vec3(0.0);
-      vec2 d = (sun.xy - uv) / 36.0;
+      vec2 d = (sun.xy - uv) / float(RAY_STEPS);
       vec2 p = uv;
       vec3 acc = vec3(0.0);
       float decay = 1.0;
-      for (int i = 0; i < 36; i++) {
+      for (int i = 0; i < RAY_STEPS; i++) {
         p += d;
         vec3 s = texture2D(t, clamp(p, 0.001, 0.999)).rgb;
         float l = dot(s, vec3(0.2126, 0.7152, 0.0722));
@@ -53,7 +54,7 @@ const CompositeShader = {
         decay *= 0.96;
       }
       float fall = exp(-length((uv - sun.xy) * vec2(uAspect, 1.0)) * 1.6);
-      return acc / 36.0 * sun.z * fall * 1.6;
+      return acc / float(RAY_STEPS) * sun.z * fall * 1.6;
     }
 
     void main() {
@@ -119,7 +120,7 @@ export function createEngine(canvas) {
   renderer.toneMappingExposure = 1.0;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = mobile ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
 
   const baseRatio = Math.min(window.devicePixelRatio || 1, mobile ? 1.5 : 1.5);
   let scale = mobile ? 0.7 : 1.0;
@@ -129,7 +130,7 @@ export function createEngine(canvas) {
   const rtB = new THREE.WebGLRenderTarget(1, 1, rtOpts);
 
   const composer = new EffectComposer(renderer);
-  const composite = new ShaderPass(CompositeShader);
+  const composite = new ShaderPass({ ...CompositeShader, defines: { RAY_STEPS: mobile ? 14 : 36 } });
   composite.uniforms.tA.value = rtA.texture;
   composite.uniforms.tB.value = rtB.texture;
   const bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.45, 1.1);
@@ -140,9 +141,13 @@ export function createEngine(canvas) {
   composer.addPass(output);
   composer.addPass(finish);
 
-  function resize() {
+  let lastSize = '';
+  function resize(force = false) {
     const w = canvas.clientWidth, h = canvas.clientHeight;
     const pr = baseRatio * scale;
+    const key = `${w}x${h}@${pr}`;
+    if (!force && key === lastSize) return;
+    lastSize = key;
     renderer.setPixelRatio(pr);
     renderer.setSize(w, h, false);
     composer.setPixelRatio(pr);
@@ -164,8 +169,8 @@ export function createEngine(canvas) {
     if (frameTimes.length < 45) return;
     const avg = frameTimes.reduce((a, b) => a + b, 0) / frameTimes.length;
     frameTimes = [];
-    if (avg > 26 && scale > 0.45) { scale *= 0.85; resize(); }
-    else if (avg < 13 && scale < (mobile ? 0.8 : 1.0)) { scale = Math.min(mobile ? 0.8 : 1.0, scale * 1.08); resize(); }
+    if (avg > 26 && scale > 0.45) { scale *= 0.85; resize(true); }
+    else if (avg < 13 && scale < (mobile ? 0.8 : 1.0)) { scale = Math.min(mobile ? 0.8 : 1.0, scale * 1.08); resize(true); }
   }
 
   const tmp = new THREE.Vector3();
@@ -182,23 +187,32 @@ export function createEngine(canvas) {
 
   const ease = (x) => x * x * (3 - 2 * x);
 
+  // On tall screens, open the vertical field of view so the horizontal view
+  // does not collapse to a sliver of the scene.
+  function fitFov(fov, aspect) {
+    if (aspect >= 1) return fov;
+    const t = Math.tan(THREE.MathUtils.degToRad(fov / 2)) * Math.min(1.75, 0.95 / aspect);
+    return Math.min(70, THREE.MathUtils.radToDeg(2 * Math.atan(t)));
+  }
+
   // Places a world's camera for local progress f in 0..1 (zoom applied past 0.5).
   function poseWorld(world, f, t, mouse, entering = 0) {
     const cam = world.camera;
     world.pose(Math.min(f, 0.5) * 2, t, mouse, cam);
     const tr = f > 0.5 ? ease((f - 0.5) * 2) : 0;
+    const fov = fitFov(world.fov, cam.aspect);
     if (tr > 0) {
       tmp.copy(world.focal).sub(cam.position);
       cam.position.addScaledVector(tmp, tr * 0.72);
-      cam.fov = world.fov * (1 - tr * 0.45);
+      cam.fov = fov * (1 - tr * 0.45);
       cam.lookAt(world.focal);
     } else {
-      cam.fov = world.fov;
+      cam.fov = fov;
     }
     if (entering > 0) {
       cam.getWorldDirection(fwd);
       cam.position.addScaledVector(fwd, -entering * world.enterPush);
-      cam.fov = world.fov * (1 + entering * 0.15);
+      cam.fov = Math.min(80, fov * (1 + entering * 0.15));
     }
     cam.updateProjectionMatrix();
     return tr;
@@ -290,6 +304,7 @@ export function createEngine(canvas) {
   }
 
   function add(index, world) {
+    if (mobile) world.scene.traverse((o) => { if (o.isLight && o.shadow) o.shadow.mapSize.set(1024, 1024); });
     world.camera.aspect = canvas.clientWidth / canvas.clientHeight;
     world.camera.updateProjectionMatrix();
     worlds[index] = world;
@@ -297,7 +312,9 @@ export function createEngine(canvas) {
     renderer.compile(world.scene, world.camera);
   }
 
-  window.addEventListener('resize', resize);
-  resize();
-  return { renderer, render, project, pick, add, worlds, mobile };
+  window.addEventListener('resize', () => resize());
+  resize(true);
+  let lost = false;
+  canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; document.body.classList.add('no-gl'); });
+  return { renderer, render: (s, dt) => { if (!lost) render(s, dt); }, project, pick, add, worlds, mobile };
 }

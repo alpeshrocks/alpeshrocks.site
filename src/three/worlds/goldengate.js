@@ -74,6 +74,7 @@ export function createGoldenGate(renderer, { mobile }) {
     lookFrom: new THREE.Vector3(60, 120, 180), lookTo: new THREE.Vector3(90, 110, 80),
     focal: new THREE.Vector3(0, TOWER_H - 30, NORTH),
     sunDir, exposure: 0.8, enterPush: 90, sway: 4,
+    portraitLook: new THREE.Vector3(10, 150, 380), portraitShift: new THREE.Vector3(60, 10, -60),
   });
   W.tint = new THREE.Vector3(1.14, 0.98, 0.86);
   W.rays = 0.4;
