@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Alpesh Shinde</title>
+  <meta name="description" content="Alpesh Shinde, AI engineer. Agentic AI systems, LLM orchestration, and data infrastructure. A walk from Kyoto to a samurai sunset." />
+  <meta name="theme-color" content="#f3ebe0" />
+  <meta property="og:title" content="Alpesh Shinde, AI Engineer" />
+  <meta property="og:description" content="Agentic AI systems that hold up in production. Take the walk." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho+B1:wght@400;600;800&family=Zen+Kaku+Gothic+New:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+  <div id="quest-layer" aria-hidden="false"></div>
+
+  <div id="loader" role="status" aria-label="Loading">
+    <svg viewBox="0 0 200 200" class="enso" aria-hidden="true">
+      <path d="M100 22 C 150 20, 182 60, 178 104 C 174 150, 134 180, 96 178 C 52 176, 20 140, 24 98 C 27 64, 50 38, 84 28" />
+    </svg>
+    <p class="loader-word">歩</p>
+  </div>
+
+  <header class="topbar">
+    <button class="seal" data-action="top" aria-label="Back to the beginning"><span>ア</span></button>
+    <div class="topbar-actions">
+      <button class="pill" data-action="resume">Skip the journey</button>
+      <button class="icon-btn" data-action="sound" aria-label="Toggle ambient sound" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path class="wave" d="M16 8.5c1.2 1 1.8 2.2 1.8 3.5s-.6 2.5-1.8 3.5M18.5 6c2 1.6 3 3.6 3 6s-1 4.4-3 6"/></svg>
+      </button>
+      <button class="icon-btn" data-action="night" aria-label="Toggle night" aria-pressed="false">
+        <svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="worlds" aria-label="Worlds"></nav>
+
+  <main id="walk"></main>
+
+  <button class="passport" data-action="passport" aria-label="Open stamp passport">
+    <span class="passport-label">Passport</span>
+    <span class="stamps"></span>
+  </button>
+
+  <div class="sheet" id="passport-sheet" hidden>
+    <div class="sheet-card">
+      <button class="close" data-action="close-sheet" aria-label="Close">×</button>
+      <p class="eyebrow">印 · Stamp passport</p>
+      <h3>Five stamps are hidden on this walk.</h3>
+      <ol class="hints"></ol>
+      <button class="pill secret-btn" data-action="secret" hidden>Enter the moon garden</button>
+    </div>
+  </div>
+
+  <section id="resume" class="resume" hidden aria-label="Resume"></section>
+
+  <div id="terminal" class="terminal" hidden>
+    <div class="term-bar"><span>alpesh@kyoto ~ </span><button data-action="close-term" aria-label="Close terminal">×</button></div>
+    <div class="term-out" aria-live="polite"></div>
+    <label class="term-line"><span>›</span><input id="term-input" autocomplete="off" spellcheck="false" aria-label="Terminal input" /></label>
+  </div>
+
+  <div id="secret-view" class="secret-view" hidden></div>
+  <div id="toast" role="status"></div>
+  <div id="cursor" aria-hidden="true"></div>
+
+  <noscript><p style="padding:2rem;font-family:serif">Alpesh Shinde, AI engineer. This site needs JavaScript for its scenery. Find me at github.com/alpeshrocks.</p></noscript>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
