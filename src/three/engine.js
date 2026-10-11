@@ -312,9 +312,29 @@ export function createEngine(canvas) {
     renderer.compile(world.scene, world.camera);
   }
 
+  // Frees a world's GPU memory. Phones keep only the worlds near the reader.
+  function remove(index) {
+    const world = worlds[index];
+    if (!world) return;
+    const seen = new Set();
+    const freeTex = (v) => { if (v && v.isTexture && !seen.has(v)) { seen.add(v); v.dispose(); } };
+    world.scene.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      for (const m of mats) {
+        for (const k of Object.keys(m)) freeTex(m[k]);
+        if (m.uniforms) for (const u of Object.values(m.uniforms)) freeTex(u && u.value);
+        m.dispose();
+      }
+      if (o.isLight && o.shadow && o.shadow.map) { o.shadow.map.dispose(); o.shadow.map = null; }
+    });
+    if (world.scene.environment) world.scene.environment.dispose();
+    worlds[index] = undefined;
+  }
+
   window.addEventListener('resize', () => resize());
   resize(true);
   let lost = false;
   canvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); lost = true; document.body.classList.add('no-gl'); });
-  return { renderer, render: (s, dt) => { if (!lost) render(s, dt); }, project, pick, add, worlds, mobile };
+  return { renderer, render: (s, dt) => { if (!lost) render(s, dt); }, project, pick, add, remove, worlds, mobile, get lost() { return lost; } };
 }

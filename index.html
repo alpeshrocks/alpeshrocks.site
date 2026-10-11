@@ -71,6 +71,14 @@
   <div id="cursor" aria-hidden="true"></div>
 
   <noscript><p style="padding:2rem;font-family:serif">Alpesh Shinde, AI engineer. This site needs JavaScript for its scenery. Find me at github.com/alpeshrocks.</p></noscript>
+  <script>
+    // ?debug collects errors from the very first moment, for the on-screen report
+    if (location.search.indexOf('debug') !== -1) {
+      window.__errs = [];
+      addEventListener('error', function (e) { __errs.push((e.message || 'error') + ' @ ' + String(e.filename || '').split('/').pop() + ':' + e.lineno); });
+      addEventListener('unhandledrejection', function (e) { __errs.push('promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+    }
+  </script>
   <script type="module" src="/src/main.js"></script>
 </body>
 </html>

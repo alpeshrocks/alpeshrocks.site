@@ -216,8 +216,11 @@ const canvas = $('#scene');
 let engine = null;
 try {
   engine = createEngine(canvas);
+  if (!engine.renderer.capabilities.isWebGL2) throw new Error('WebGL2 not available');
 } catch (err) {
   console.warn('WebGL unavailable, showing the painted fallback.', err);
+  window.__engineError = String(err && err.message ? err.message : err);
+  engine = null;
 }
 if (!engine) document.body.classList.add('no-gl');
 
@@ -236,8 +239,29 @@ function buildFirst() {
   try { engine.add(0, builders[0](buildOpts())); } catch (err) { console.error('world', 0, err); }
 }
 // Remaining worlds build one per idle slot so the hero stays responsive.
+// Phones hold only the current world, its neighbours, and the moon garden when
+// it is open; everything else is freed so the browser never runs out of
+// graphics memory. Desktops build everything once.
+let building = false;
+async function manageWorlds() {
+  if (!engine || building || engine.lost) return;
+  const id = Math.min(4, Math.max(0, Math.floor(state.targetWorld)));
+  const want = new Set([id - 1, id, id + 1].filter((i) => i >= 0 && i <= 4));
+  if (state.secretTarget > 0 || state.secret > 0.01) want.add(5);
+  for (let i = 0; i < builders.length; i++) {
+    if (engine.worlds[i] && !want.has(i) && Math.abs(i - id) > 1) engine.remove(i);
+  }
+  const order = [id, id + 1, id - 1, 5].filter((i) => want.has(i) && !engine.worlds[i]);
+  if (!order.length) return;
+  building = true;
+  const i = order[0];
+  try { engine.add(i, builders[i](buildOpts())); } catch (err) { console.error('world', i, err); }
+  building = false;
+}
+
 async function buildWorlds() {
   if (!engine) return;
+  if (engine.mobile) { setInterval(manageWorlds, 250); return; }
   const opts = buildOpts();
   const idle = () => new Promise((r) => (window.requestIdleCallback ? requestIdleCallback(r, { timeout: 400 }) : setTimeout(r, 30)));
   for (let i = 1; i < builders.length; i++) {
@@ -586,8 +610,10 @@ if (import.meta.env.DEV) { window.__pin = (v) => { PIN_WORLD = v; }; window.__en
 const navButtons = $$('.worlds button');
 let last = performance.now();
 let lastNav = -1;
+let lastDt = 0.016;
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
+  lastDt = dt;
   last = now;
   state.time += dt * (reduced ? 0.25 : 1);
 
@@ -600,7 +626,11 @@ function loop(now) {
   state.mouse.x += (state.mouseTarget.x - state.mouse.x) * (1 - Math.exp(-dt * 2));
   state.mouse.y += (state.mouseTarget.y - state.mouse.y) * (1 - Math.exp(-dt * 2));
 
-  if (engine && resumeEl.hidden) engine.render(state, dt);
+  if (engine && resumeEl.hidden) {
+    try { engine.render(state, dt); } catch (err) {
+      if (!window.__renderError) { window.__renderError = String(err && err.message ? err.message : err); console.error(err); }
+    }
+  }
   fx.frame(dt);
   placeTargets();
 
@@ -655,3 +685,33 @@ console.log(
   'background:#b8322a;color:#f6efe4;font-size:16px;padding:4px 8px;border-radius:4px',
   'font-size:12px;color:#7a6f63',
 );
+
+// ?debug shows what the device's graphics stack is doing, so problems on a
+// phone can be diagnosed without a desktop inspector.
+if (new URLSearchParams(location.search).has('debug')) {
+  const box = h('pre', { style: 'position:fixed;left:8px;right:8px;bottom:60px;z-index:300;max-height:45vh;overflow:auto;margin:0;padding:10px;background:rgba(0,0,0,.82);color:#9f9;font:11px/1.4 ui-monospace,monospace;border-radius:8px;white-space:pre-wrap;pointer-events:auto' });
+  document.body.appendChild(box);
+  const origError = console.error;
+  console.error = (...a) => { (window.__errs = window.__errs || []).push(a.map((x) => (x && x.message) || String(x)).join(' ')); origError(...a); };
+  let gpu = 'unknown';
+  try {
+    const gl = engine && engine.renderer.getContext();
+    const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    gpu = gl ? (ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)) : 'no context';
+  } catch { /* ignore */ }
+  setInterval(() => {
+    const r = engine && engine.renderer;
+    box.textContent = [
+      `ua: ${navigator.userAgent}`,
+      `screen: ${innerWidth}x${innerHeight} dpr ${devicePixelRatio}`,
+      `engine: ${engine ? 'ok' : 'FAILED ' + (window.__engineError || '')}`,
+      `gpu: ${gpu}`,
+      r ? `webgl2: ${r.capabilities.isWebGL2} maxTex: ${r.capabilities.maxTextureSize} precision: ${r.capabilities.precision}` : '',
+      r ? `pixelRatio: ${r.getPixelRatio().toFixed(2)} programs: ${r.info.programs ? r.info.programs.length : '?'} textures: ${r.info.memory.textures} geometries: ${r.info.memory.geometries}` : '',
+      `contextLost: ${engine ? engine.lost : '-'}  world: ${state.world.toFixed(2)}  built: ${engine ? engine.worlds.map((w, i) => (w ? i : '.')).join('') : '-'}`,
+      `fps: ${Math.round(1 / Math.max(0.001, lastDt || 0.016))}`,
+      `renderError: ${window.__renderError || 'none'}`,
+      `errors:\n${(window.__errs || []).slice(-8).join('\n') || 'none'}`,
+    ].filter(Boolean).join('\n');
+  }, 500);
+}
